@@ -1,5 +1,7 @@
 # AMP AI360 — Tanzania Agriculture Master Plan & CAADP Executive Platform
 
+> **🌍 Live site:** **https://abduly-d.github.io/amp-ai360/** — open in any browser, no install needed.
+
 A full-stack **Next.js 14 (App Router)** executive-intelligence application tracking Tanzania's
 **Agriculture Master Plan (AMP 2050)** and its alignment with the **AU CAADP / Malabo Declaration**,
 with an embedded **AI Executive Copilot** (RAG over the AMP 2050 & CAADP knowledge base).
