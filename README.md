@@ -77,3 +77,25 @@ All AMP figures use the AMP 2050 ground-truth baselines (Ag GDP $18B→$31.2B→
 $5.5B public investment at a 3.5× benefit-cost ratio) and the CAADP Maputo/Malabo commitments
 (≥10% budget, ≥6% growth, tripling intra-African trade, ending hunger/halving poverty, Post-Malabo
 2026–2035 agenda). Open-data tiers reference FAOSTAT, the World Bank and WFP VAM.
+
+## Connect to GitHub & deploy
+
+The GitHub CLI is installed. Sign in once (opens your browser), then run the helper:
+
+```bash
+gh auth login
+./scripts/connect-github.sh            # creates a private "amp-ai360" repo and pushes
+# ./scripts/connect-github.sh amp-ai360 --public   # to make it public instead
+```
+
+Deploy to a live URL with Vercel:
+
+```bash
+npm i -g vercel
+vercel login
+./scripts/deploy-vercel.sh --prod
+```
+
+Optional environment variables (set in the Vercel dashboard):
+- `OPENAI_API_KEY` + `AMP_GPT_INSTRUCTIONS` — GPT-matched in-dashboard assistant
+- `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` — live Google Map (if enabled)

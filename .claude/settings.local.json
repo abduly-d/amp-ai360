@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(brew install *)",
+      "Bash(gh --version)",
+      "Bash(chmod +x scripts/connect-github.sh scripts/deploy-vercel.sh)"
+    ]
+  }
+}
