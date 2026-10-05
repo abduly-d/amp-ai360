@@ -23,6 +23,8 @@ export interface Commodity {
   category: CommodityCategory;
   postHarvestLossPct: number;
   amp2030TargetProduction: number; // '000 MT
+  seasonTargetProduction?: number; // '000 MT — current marketing-season target
+  seasonLabel?: string; // e.g. "2026/2027"
   keyRegions: string[];
   status: "growing" | "stable" | "declining";
   note: string;
@@ -42,7 +44,7 @@ export const COMMODITIES: Commodity[] = [
   { id: "maize", name: "Maize", emoji: "🌽", category: "Cereals", postHarvestLossPct: 18, amp2030TargetProduction: 10500, keyRegions: ["Njombe", "Mbeya", "Ruvuma", "Rukwa"], status: "growing", note: "Staple food security crop; NFRA strategic reserve anchor.", series: series(6200, 480, 0.06) },
   { id: "rice", name: "Rice", emoji: "🌾", category: "Cereals", postHarvestLossPct: 15, amp2030TargetProduction: 4200, keyRegions: ["Morogoro", "Mbeya", "Shinyanga", "Kigoma"], status: "growing", note: "High irrigation-linked upside; key to import substitution.", series: series(2100, 900, 0.07) },
   { id: "wheat", name: "Wheat", emoji: "🌿", category: "Cereals", postHarvestLossPct: 12, amp2030TargetProduction: 300, keyRegions: ["Arusha", "Manyara", "Iringa"], status: "stable", note: "Large import gap; strategic domestic expansion target.", series: series(80, 1100, 0.04) },
-  { id: "cashew", name: "Cashew", emoji: "🥜", category: "Cash Crops", postHarvestLossPct: 8, amp2030TargetProduction: 700, keyRegions: ["Mtwara", "Lindi", "Ruvuma", "Pwani"], status: "growing", note: "Top export earner; processing localization priority.", series: series(240, 2600, 0.08) },
+  { id: "cashew", name: "Cashew", emoji: "🥜", category: "Cash Crops", postHarvestLossPct: 8, amp2030TargetProduction: 1000, seasonTargetProduction: 750, seasonLabel: "2026/2027", keyRegions: ["Mtwara", "Lindi", "Ruvuma", "Pwani"], status: "growing", note: "2025/26 output 618,497 MT; 2026/27 target 750,000 MT; 2030 target 1.0M MT (Cashewnut Board of Tanzania). Top export earner; processing localisation priority.", series: series(360.6, 2600, 0.08) },
   { id: "coffee", name: "Coffee", emoji: "☕", category: "Cash Crops", postHarvestLossPct: 6, amp2030TargetProduction: 300, keyRegions: ["Kagera", "Kilimanjaro", "Mbeya", "Ruvuma"], status: "stable", note: "Value premium via washed arabica and traceability.", series: series(65, 4200, 0.05) },
   { id: "cotton", name: "Cotton", emoji: "🧵", category: "Cash Crops", postHarvestLossPct: 9, amp2030TargetProduction: 1000, keyRegions: ["Simiyu", "Mwanza", "Shinyanga", "Tabora"], status: "declining", note: "Textiles linkage; contract farming revival needed.", series: series(350, 1150, -0.02) },
   { id: "sisal", name: "Sisal", emoji: "🪢", category: "Cash Crops", postHarvestLossPct: 5, amp2030TargetProduction: 120, keyRegions: ["Tanga", "Morogoro", "Kilimanjaro"], status: "growing", note: "Rising global fibre demand; biogas co-products.", series: series(45, 1400, 0.06) },
