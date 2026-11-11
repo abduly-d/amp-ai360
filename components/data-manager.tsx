@@ -21,12 +21,12 @@ export function DataManager() {
   const { snapshot, refresh } = useDomain();
   const { name } = useAuth();
   const spec = DATASETS[dataset];
-  const rows = snapshot.tables[dataset] ?? [];
   const shown = useMemo(() => {
+    const source = snapshot.tables[dataset] ?? [];
     const needle = q.trim().toLowerCase();
-    if (!needle) return rows;
-    return rows.filter((row) => JSON.stringify(row).toLowerCase().includes(needle));
-  }, [rows, q]);
+    if (!needle) return source;
+    return source.filter((row) => JSON.stringify(row).toLowerCase().includes(needle));
+  }, [snapshot.tables, dataset, q]);
   const columns = spec.fields.slice(0, 4);
 
   async function remove(id: string) {

@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx --test lib/store/memory.test.ts lib/import/csv.test.ts lib/auth/session.test.ts lib/ai/providers.test.ts"
+    "test": "tsx --test lib/store/memory.test.ts lib/import/csv.test.ts lib/auth/session.test.ts lib/ai/providers.test.ts lib/welcome.test.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",
