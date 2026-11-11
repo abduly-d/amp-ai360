@@ -1,6 +1,35 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { llmAnalyze } from "./engine";
 import { completeWithChain, extractAssistantText, providerChain, toPawaMessages } from "./providers";
+
+const PAWA_ANSWER = [
+  "Irrigation covers 727 thousand hectares, 61% of the 1.2 million hectare AMP path.",
+  "- Flagship 1 still gates the yield response of certified seed.",
+  "- Disbursement delays on three basin schemes are the binding constraint.",
+  "REC: Release contractor payments for the shovel-ready Mbeya and Morogoro schemes.",
+].join("\n");
+
+/** Shape documented at https://docs.pawa-ai.com/api-reference/endpoint/chat/request */
+function pawaEnvelope(content: string | { type: string; text: string }[]) {
+  return {
+    success: true,
+    message: "Chat request processed successfully",
+    data: {
+      request: [
+        {
+          finish_reason: "stop",
+          message: { role: "assistant", content },
+          matched_stop: 128001,
+        },
+      ],
+      created: 1753304351,
+      model: "pawa-v1-blaze-20250318",
+      object: "chat.request",
+      usage: { tokens_in: 42, tokens_out: 128 },
+    },
+  };
+}
 
 test("pawa messages alternate and use text blocks", () => {
   const messages = toPawaMessages([
@@ -28,6 +57,37 @@ test("assistant text is read from several response shapes", () => {
   assert.equal(extractAssistantText({ output_text: "Output" }), "Output");
   assert.equal(extractAssistantText({ unexpected: true }), null);
   assert.equal(extractAssistantText(null), null);
+  assert.equal(extractAssistantText({ success: true, message: "Chat request processed successfully" }), null);
+});
+
+test("a Pawa envelope yields the assistant reply, not the status message", async () => {
+  assert.equal(extractAssistantText(pawaEnvelope(PAWA_ANSWER)), PAWA_ANSWER);
+  assert.equal(
+    extractAssistantText(pawaEnvelope([{ type: "text", text: "Chat request processed successfully" }, { type: "text", text: PAWA_ANSWER }])),
+    PAWA_ANSWER
+  );
+  assert.doesNotMatch(extractAssistantText(pawaEnvelope(PAWA_ANSWER)) ?? "", /processed successfully/);
+
+  const previousFetch = globalThis.fetch;
+  const previousProvider = process.env.AI_PROVIDER;
+  const previousKey = process.env.PAWA_AI_API_KEY;
+  process.env.AI_PROVIDER = "pawa";
+  process.env.PAWA_AI_API_KEY = "test-key";
+  globalThis.fetch = async () => new Response(JSON.stringify(pawaEnvelope(PAWA_ANSWER)), { status: 200 });
+  try {
+    const result = await llmAnalyze("What is needed to expand irrigation?");
+    assert.equal(result?.provider, "pawa");
+    assert.match(result?.summary ?? "", /727 thousand hectares/);
+    assert.doesNotMatch(result?.summary ?? "", /processed successfully/i);
+    assert.ok(result?.keyPoints.some((point) => /Flagship 1/.test(point)));
+    assert.ok(result?.recommendations?.some((item) => /Mbeya and Morogoro/.test(item)));
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousProvider === undefined) delete process.env.AI_PROVIDER;
+    else process.env.AI_PROVIDER = previousProvider;
+    if (previousKey === undefined) delete process.env.PAWA_AI_API_KEY;
+    else process.env.PAWA_AI_API_KEY = previousKey;
+  }
 });
 
 test("provider chain follows AI_PROVIDER and skips missing keys", () => {
