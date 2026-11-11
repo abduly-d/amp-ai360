@@ -3,10 +3,20 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { INSTITUTIONS } from "@/lib/data/institutions";
+import { INSTITUTIONS as STATIC_INSTITUTIONS } from "@/lib/data/institutions";
+import { useDomain, useFilters } from "@/components/app-state";
+import { EmptyState } from "@/components/page-header";
 import { STATUS_META } from "@/lib/data/flagships";
 
 export function InstitutionalScorecard() {
+  const { snapshot, ready } = useDomain();
+  const { flagship } = useFilters();
+  const INSTITUTIONS = (ready ? snapshot.institutions : STATIC_INSTITUTIONS).filter(
+    (institution) => !flagship || institution.linkedFlagships.map(String).includes(flagship)
+  );
+  if (!INSTITUTIONS.length) {
+    return <EmptyState title="No institutions" body="No scorecard rows match this filter." />;
+  }
   const avg = Math.round(
     INSTITUTIONS.reduce((s, i) => s + i.deliveryScore, 0) / INSTITUTIONS.length
   );

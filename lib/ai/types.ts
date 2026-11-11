@@ -12,7 +12,7 @@ export interface AnalysisTable {
 
 export interface AnalysisResult {
   mode: AnalysisMode;
-  provider: "anthropic" | "openai" | "local-rag";
+  provider: "anthropic" | "openai" | "pawa" | "local-rag";
   query: string;
   summary: string;
   keyPoints: string[];

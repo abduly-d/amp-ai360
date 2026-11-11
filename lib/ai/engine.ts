@@ -1,8 +1,30 @@
 import { retrieve, citationsFor, RetrievedChunk } from "./retrieval";
 import { AnalysisMode, AnalysisResult, AnalysisTable } from "./types";
 import { FLAGSHIPS, Flagship, flagshipProgress } from "@/lib/data/flagships";
-import { CAADP_MATRIX, VERDICT_META } from "@/lib/data/caadp";
-import { AMP_KPIS } from "@/lib/data/amp-targets";
+import { CAADP_MATRIX, CaadpMetric, VERDICT_META } from "@/lib/data/caadp";
+import { AMP_KPIS, KpiTarget } from "@/lib/data/amp-targets";
+import { completeWithChain, type ProviderName } from "./providers";
+
+export interface AnalysisContext {
+  /** When true, use the supplied records even if a list is empty. */
+  preferLive?: boolean;
+  flagships?: Flagship[];
+  kpis?: KpiTarget[];
+  caadp?: CaadpMetric[];
+  liveFacts?: string;
+}
+
+function resolveFacts(ctx?: AnalysisContext) {
+  if (!ctx?.preferLive) {
+    return { flagships: FLAGSHIPS, kpis: AMP_KPIS, caadp: CAADP_MATRIX, liveFacts: ctx?.liveFacts ?? "" };
+  }
+  return {
+    flagships: ctx.flagships ?? [],
+    kpis: ctx.kpis ?? [],
+    caadp: ctx.caadp ?? [],
+    liveFacts: ctx.liveFacts ?? "",
+  };
+}
 
 // --------------------------------------------------------------------------
 // Intent detection
@@ -18,17 +40,17 @@ export function detectMode(query: string): AnalysisMode {
   return "general";
 }
 
-function findFlagships(query: string): Flagship[] {
+function findFlagships(query: string, flagships: Flagship[] = FLAGSHIPS): Flagship[] {
   const q = query.toLowerCase();
   const found: Flagship[] = [];
   // explicit "flagship N"
   const nums = Array.from(q.matchAll(/flagship\s*(\d{1,2})/g)).map((m) => Number(m[1]));
   for (const n of nums) {
-    const f = FLAGSHIPS.find((x) => x.id === n);
+    const f = flagships.find((x) => x.id === n);
     if (f && !found.includes(f)) found.push(f);
   }
   // name keywords
-  for (const f of FLAGSHIPS) {
+  for (const f of flagships) {
     const key = f.name.toLowerCase().split(/[\s&(]/)[0];
     if (key.length > 3 && q.includes(key) && !found.includes(f)) found.push(f);
   }
@@ -38,11 +60,21 @@ function findFlagships(query: string): Flagship[] {
 // --------------------------------------------------------------------------
 // Deterministic (local-RAG) analysis for each mode
 // --------------------------------------------------------------------------
-function correlationAnalysis(query: string, chunks: RetrievedChunk[]): AnalysisResult {
-  let picks = findFlagships(query);
+function correlationAnalysis(query: string, chunks: RetrievedChunk[], flagships: Flagship[] = FLAGSHIPS): AnalysisResult {
+  let picks = findFlagships(query, flagships);
+  if (!picks.length) {
+    return {
+      mode: "correlation",
+      provider: "local-rag",
+      query,
+      summary: "No flagship records are available to correlate yet.",
+      keyPoints: ["Add flagships in Manage data, then ask again."],
+      citations: citationsFor(chunks),
+    };
+  }
   if (picks.length < 2) {
     // default to a canonical correlation example
-    const extra = FLAGSHIPS.filter((f) => [1, 2, 8].includes(f.id));
+    const extra = flagships.filter((f) => [1, 2, 8].includes(f.id));
     for (const e of extra) if (!picks.includes(e)) picks.push(e);
     picks = picks.slice(0, 3);
   }
@@ -98,16 +130,26 @@ function correlationAnalysis(query: string, chunks: RetrievedChunk[]): AnalysisR
   };
 }
 
-function targetPathAnalysis(query: string, chunks: RetrievedChunk[]): AnalysisResult {
+function targetPathAnalysis(query: string, chunks: RetrievedChunk[], kpis: KpiTarget[] = AMP_KPIS, flagships: Flagship[] = FLAGSHIPS): AnalysisResult {
   const q = query.toLowerCase();
   // Try to match a KPI the user is asking about.
-  let kpi = AMP_KPIS.find((k) =>
+  let kpi = kpis.find((k) =>
     q.includes(k.label.toLowerCase().split(" ")[0])
   );
-  if (/export/.test(q)) kpi = AMP_KPIS.find((k) => k.id === "net-exports");
-  if (/growth|4.8|10%/.test(q)) kpi = AMP_KPIS.find((k) => k.id === "ag-growth");
-  if (/gdp/.test(q)) kpi = kpi ?? AMP_KPIS.find((k) => k.id === "ag-gdp");
-  if (!kpi) kpi = AMP_KPIS.find((k) => k.id === "ag-growth")!;
+  if (/export/.test(q)) kpi = kpis.find((k) => k.id === "net-exports");
+  if (/growth|4.8|10%/.test(q)) kpi = kpis.find((k) => k.id === "ag-growth");
+  if (/gdp/.test(q)) kpi = kpi ?? kpis.find((k) => k.id === "ag-gdp");
+  if (!kpi) kpi = kpis.find((k) => k.id === "ag-growth") ?? kpis[0];
+  if (!kpi) {
+    return {
+      mode: "target-path",
+      provider: "local-rag",
+      query,
+      summary: "No indicators are recorded yet, so there is no target path to chart.",
+      keyPoints: ["Add an indicator and at least one actual in Manage data."],
+      citations: citationsFor(chunks),
+    };
+  }
 
   const gapTable: AnalysisTable = {
     title: `Gap-to-Target: ${kpi.label}`,
@@ -120,7 +162,7 @@ function targetPathAnalysis(query: string, chunks: RetrievedChunk[]): AnalysisRe
     ],
   };
 
-  const enablers = FLAGSHIPS.filter((f) =>
+  const enablers = flagships.filter((f) =>
     [1, 2, 3, 8, 9, 10, 11].includes(f.id)
   ).map((f) => `F${f.id} ${f.name} (${flagshipProgress(f)}%)`);
 
@@ -146,8 +188,18 @@ function targetPathAnalysis(query: string, chunks: RetrievedChunk[]): AnalysisRe
   };
 }
 
-function caadpAnalysis(query: string, chunks: RetrievedChunk[]): AnalysisResult {
-  const rows = CAADP_MATRIX.map((m) => [
+function caadpAnalysis(query: string, chunks: RetrievedChunk[], matrix: CaadpMetric[] = CAADP_MATRIX): AnalysisResult {
+  if (!matrix.length) {
+    return {
+      mode: "caadp-alignment",
+      provider: "local-rag",
+      query,
+      summary: "No CAADP alignment items are recorded yet.",
+      keyPoints: ["Add alignment items in Manage data to compare AMP with Malabo."],
+      citations: citationsFor(chunks),
+    };
+  }
+  const rows = matrix.map((m) => [
     m.dimension,
     m.caadpValueLabel,
     m.ampValueLabel,
@@ -159,7 +211,7 @@ function caadpAnalysis(query: string, chunks: RetrievedChunk[]): AnalysisResult 
     rows,
   };
 
-  const gaps = CAADP_MATRIX.filter(
+  const gaps = matrix.filter(
     (m) => m.verdict === "gap" || m.verdict === "critical-gap"
   );
 
@@ -181,10 +233,10 @@ function caadpAnalysis(query: string, chunks: RetrievedChunk[]): AnalysisResult 
   };
 }
 
-function generalAnalysis(query: string, chunks: RetrievedChunk[]): AnalysisResult {
+function generalAnalysis(query: string, chunks: RetrievedChunk[], liveFacts = ""): AnalysisResult {
   const top = chunks[0];
   const summary = top
-    ? `${top.text}`
+    ? `${top.text}${liveFacts ? `\n\nWorking figures: ${liveFacts.split("\n").slice(2, 6).join(" ")}` : ""}`
     : "No matching AMP 2050 or CAADP section was found for that query. Try referencing a specific flagship, KPI, commodity, or CAADP commitment.";
   return {
     mode: "general",
@@ -196,29 +248,31 @@ function generalAnalysis(query: string, chunks: RetrievedChunk[]): AnalysisResul
   };
 }
 
-export function localAnalyze(query: string): AnalysisResult {
+export function localAnalyze(query: string, ctx?: AnalysisContext): AnalysisResult {
   const mode = detectMode(query);
   const chunks = retrieve(query, 4);
+  const facts = resolveFacts(ctx);
   switch (mode) {
     case "correlation":
-      return correlationAnalysis(query, chunks);
+      return correlationAnalysis(query, chunks, facts.flagships);
     case "target-path":
-      return targetPathAnalysis(query, chunks);
+      return targetPathAnalysis(query, chunks, facts.kpis, facts.flagships);
     case "caadp-alignment":
-      return caadpAnalysis(query, chunks);
+      return caadpAnalysis(query, chunks, facts.caadp);
     default:
-      return generalAnalysis(query, chunks);
+      return generalAnalysis(query, chunks, facts.liveFacts);
   }
 }
 
 // --------------------------------------------------------------------------
 // Optional LLM enhancement (Anthropic or OpenAI). Falls back silently.
 // --------------------------------------------------------------------------
-export function buildContext(query: string): string {
+export function buildContext(query: string, liveFacts = ""): string {
   const chunks = retrieve(query, 5);
-  return chunks
+  const documents = chunks
     .map((c) => `[${c.source} · ${c.section}] ${c.title}\n${c.text}`)
     .join("\n\n");
+  return [documents, liveFacts].filter(Boolean).join("\n\n");
 }
 
 const DEFAULT_SYSTEM_PROMPT = `You are the AMP AI360 Executive Copilot for Tanzania's Agriculture Master Plan (AMP 2050) and CAADP/Malabo alignment. Answer as a concise, decision-ready briefing for a Minister or executive. Ground every claim in the provided context. Prefer specific figures. When relevant, cover: cross-flagship correlations, actionable target-execution paths, and CAADP alignment. Always end with 2-4 concrete recommendations.`;
@@ -230,68 +284,20 @@ function systemPrompt(): string {
   return process.env.AMP_GPT_INSTRUCTIONS?.trim() || DEFAULT_SYSTEM_PROMPT;
 }
 
-export async function llmAnalyze(query: string): Promise<AnalysisResult | null> {
-  const context = buildContext(query);
+export async function llmAnalyze(query: string, ctx?: AnalysisContext): Promise<AnalysisResult | null> {
+  const facts = resolveFacts(ctx);
+  const context = buildContext(query, facts.liveFacts);
   const chunks = retrieve(query, 5);
   const mode = detectMode(query);
-  const userMsg = `Executive question:\n${query}\n\nGrounding context (AMP 2050 & CAADP):\n${context}\n\nRespond with: (1) a 3-4 sentence executive summary, (2) 3-5 key points as bullet lines prefixed with "- ", (3) 2-4 recommendations prefixed with "REC: ".`;
+  const userMsg = `Executive question:\n${query}\n\nGrounding context (AMP 2050 & CAADP knowledge base, plus the live working dataset):\n${context}\n\nRespond with: (1) a 3-4 sentence executive summary, (2) 3-5 key points as bullet lines prefixed with "- ", (3) 2-4 recommendations prefixed with "REC: ". Prefer the live working figures when they differ from the document text.`;
 
   try {
-    // Prefer OpenAI first — the AMP2050 GPT is an OpenAI custom GPT, so with its
-    // instructions + key the answers align most closely.
-    if (process.env.OPENAI_API_KEY) {
-      const text = await callOpenAI(userMsg);
-      if (text) return parseLlmText(text, query, mode, chunks, "openai");
-    }
-    if (process.env.ANTHROPIC_API_KEY) {
-      const text = await callAnthropic(userMsg);
-      if (text) return parseLlmText(text, query, mode, chunks, "anthropic");
-    }
+    const done = await completeWithChain({ system: systemPrompt(), user: userMsg });
+    if (!done) return null;
+    return parseLlmText(done.text, query, mode, chunks, done.provider);
   } catch {
     return null;
   }
-  return null;
-}
-
-async function callAnthropic(userMsg: string): Promise<string | null> {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": process.env.ANTHROPIC_API_KEY!,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: process.env.ANTHROPIC_MODEL || "claude-opus-4-8",
-      max_tokens: 900,
-      system: systemPrompt(),
-      messages: [{ role: "user", content: userMsg }],
-    }),
-  });
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data?.content?.[0]?.text ?? null;
-}
-
-async function callOpenAI(userMsg: string): Promise<string | null> {
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      max_tokens: 900,
-      messages: [
-        { role: "system", content: systemPrompt() },
-        { role: "user", content: userMsg },
-      ],
-    }),
-  });
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data?.choices?.[0]?.message?.content ?? null;
 }
 
 function parseLlmText(
@@ -299,7 +305,7 @@ function parseLlmText(
   query: string,
   mode: AnalysisMode,
   chunks: RetrievedChunk[],
-  provider: "anthropic" | "openai"
+  provider: ProviderName
 ): AnalysisResult {
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
   const keyPoints: string[] = [];

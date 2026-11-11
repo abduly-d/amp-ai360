@@ -5,13 +5,10 @@ import { Landmark } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import {
-  INVESTMENTS,
-  INV_TOTALS,
-  INV_CATS,
-  FLAG_FUND,
-  usd,
-} from "@/lib/data/investments";
+import { usd } from "@/lib/data/investments";
+import { investmentRollup } from "@/lib/domain/snapshot";
+import { useDomain, useFilters } from "@/components/app-state";
+import { EmptyState } from "@/components/page-header";
 
 const STATUS_COLOR: Record<string, string> = {
   "IN-PROGRESS": "#1EA84C",
@@ -22,18 +19,32 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export function InvestmentTracking() {
+  const { snapshot, ready } = useDomain();
+  const { region, flagship } = useFilters();
+  const regionName = snapshot.regions.find((item) => item.id === region)?.name ?? "";
+  const INVESTMENTS = (ready ? snapshot.investments : []).filter((item) => {
+    if (regionName && item.region !== regionName && item.region !== "Nationwide") return false;
+    if (flagship && (item.flag.match(/(\d+)/)?.[1] ?? "") !== flagship) return false;
+    return true;
+  });
   const [cat, setCat] = useState<string>("");
-  const t = INV_TOTALS;
-  const securedPct = Math.round((t.sec / t.req) * 100);
-  const maxReq = Math.max(...FLAG_FUND.map((f) => f.req));
+  const roll = investmentRollup(INVESTMENTS);
+  const t = roll.totals;
+  const INV_CATS = roll.cats;
+  const FLAG_FUND = roll.byFlag;
+  const securedPct = t.req ? Math.round((t.sec / t.req) * 100) : 0;
+  const maxReq = Math.max(1, ...FLAG_FUND.map((f) => f.req));
   const funderTotals = Object.entries(
     INVESTMENTS.reduce<Record<string, number>>((m, p) => {
       m[p.funder] = (m[p.funder] ?? 0) + p.req;
       return m;
     }, {})
   ).sort((a, b) => b[1] - a[1]);
-  const maxFunder = funderTotals[0][1];
+  const maxFunder = funderTotals[0]?.[1] || 1;
   const shown = INVESTMENTS.filter((p) => !cat || p.cat === cat);
+  if (!INVESTMENTS.length) {
+    return <EmptyState title="No investments" body="No partner records match this filter. Add one from Manage data or clear the filters." />;
+  }
 
   return (
     <div className="space-y-4">

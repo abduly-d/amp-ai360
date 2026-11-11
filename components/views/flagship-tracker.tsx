@@ -5,9 +5,15 @@ import { ChevronDown, Link2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { FLAGSHIPS, STATUS_META, flagshipProgress } from "@/lib/data/flagships";
+import { FLAGSHIPS as STATIC_FLAGSHIPS, STATUS_META, flagshipProgress } from "@/lib/data/flagships";
+import { useDomain, useFilters } from "@/components/app-state";
+import { EmptyState } from "@/components/page-header";
 
 export function FlagshipTracker() {
+  const { snapshot, ready } = useDomain();
+  const { flagship } = useFilters();
+  const all = ready ? snapshot.flagships : STATIC_FLAGSHIPS;
+  const FLAGSHIPS = all.filter((item) => !flagship || String(item.id) === flagship);
   const [open, setOpen] = useState<number | null>(1);
   const [filter, setFilter] = useState<"all" | "on-track" | "at-risk" | "critical">("all");
 
@@ -18,6 +24,10 @@ export function FlagshipTracker() {
   };
 
   const shown = FLAGSHIPS.filter((f) => filter === "all" || f.status === filter);
+
+  if (!all.length) {
+    return <EmptyState title="No flagships yet" body="Add a flagship from Manage data. Progress entries then drive the status on this page." />;
+  }
 
   return (
     <div className="space-y-4">
@@ -114,7 +124,8 @@ export function FlagshipTracker() {
                       </p>
                       <div className="flex flex-wrap gap-1.5">
                         {f.linkedTo.map((id) => {
-                          const l = FLAGSHIPS.find((x) => x.id === id)!;
+                          const l = all.find((x) => x.id === id);
+                          if (!l) return null;
                           return (
                             <button
                               key={id}

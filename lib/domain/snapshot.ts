@@ -38,6 +38,10 @@ function text(row: Row, key: string, fallback = ""): string {
   return value == null ? fallback : String(value);
 }
 
+function plain(value: unknown): string {
+  return value == null ? "" : String(value);
+}
+
 function num(row: Row, key: string, fallback = 0): number {
   const value = row[key];
   const n = typeof value === "number" ? value : Number(value);
@@ -96,8 +100,8 @@ export function buildSnapshot(
       actualSource: current ? text(current, "source", "Team entry") : text(row, "source", "—"),
       actualYear: current ? num(current, "year") : num(row, "baselineYear"),
       note: text(row, "note"),
-      updatedAt: text(current?.updatedAt ?? row.updatedAt),
-      updatedBy: text(current?.updatedBy ?? row.updatedBy),
+      updatedAt: plain(current?.updatedAt ?? row.updatedAt),
+      updatedBy: plain(current?.updatedBy ?? row.updatedBy),
       actuals,
     };
     if (current) {
@@ -121,15 +125,15 @@ export function buildSnapshot(
         target: num(row, "target"),
         current: current ? num(current, "current") : 0,
         unit: text(row, "unit"),
-        status: status === "on-track" || status === "critical" ? status : "at-risk",
         lead: text(row, "lead"),
         budgetUsdM: num(row, "budgetUsdM"),
         linkedTo: ints(row, "linkedTo"),
         summary: text(row, "summary"),
-        note: text(current?.note ?? row.note),
-        source: text(current?.source ?? row.source),
-        updatedAt: text(current?.updatedAt ?? row.updatedAt),
-        updatedBy: text(current?.updatedBy ?? row.updatedBy),
+        note: plain(current?.note ?? row.note),
+        source: plain(current?.source ?? row.source),
+        updatedAt: plain(current?.updatedAt ?? row.updatedAt),
+        updatedBy: plain(current?.updatedBy ?? row.updatedBy),
+        status: (status === "on-track" || status === "critical" ? status : "at-risk") as FlagshipStatus,
         progress,
       };
     })

@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { KpiGauge } from "@/components/kpi-gauge";
 import { AMP_KPIS, AMP_HEADLINES, progressTo2030, KpiTarget } from "@/lib/data/amp-targets";
+import { useDomain } from "@/components/app-state";
+import { EmptyState } from "@/components/page-header";
 import { OpenSignal } from "@/lib/data/open-data";
 import { signalsForYear, kpiOverridesForYear } from "@/lib/data/wb-hist";
 import { BOT_MER } from "@/lib/data/bot-mer";
@@ -57,6 +59,8 @@ function KpiCard({ kpi }: { kpi: KpiTarget }) {
 }
 
 export function ExecutiveOverview({ year }: { year?: number }) {
+  const { snapshot, ready } = useDomain();
+  const sourceKpis = ready ? snapshot.kpis : AMP_KPIS;
   const nowYear = new Date().getFullYear();
   year = year ?? nowYear;
   const [summary, setSummary] = useState<AnalysisResult | null>(null);
@@ -95,7 +99,18 @@ export function ExecutiveOverview({ year }: { year?: number }) {
 
   // Apply the selected year's actuals to the KPI gauges.
   const overrides = kpiOverridesForYear(year);
-  const kpisForYear: KpiTarget[] = AMP_KPIS.map((k) => {
+  const kpisForYear: KpiTarget[] = sourceKpis.map((k) => {
+    const actuals = "actuals" in k ? (k.actuals as { year?: unknown; value?: unknown; label?: unknown; source?: unknown }[]) : undefined;
+    const stored = actuals?.find((actual) => Number(actual.year) === year);
+    if (stored && typeof stored.value === "number") {
+      return {
+        ...k,
+        current: stored.value,
+        currentLabel: String(stored.label || stored.value),
+        actualYear: Number(stored.year),
+        actualSource: String(stored.source || k.actualSource),
+      };
+    }
     const o = overrides[k.id];
     return o ? { ...k, current: o.value, currentLabel: o.label, actualYear: o.year } : k;
   });
@@ -256,6 +271,9 @@ export function ExecutiveOverview({ year }: { year?: number }) {
             <span className="w-full text-[11px] text-muted-foreground">100% (full ring) = the 2030 milestone reached. For metrics where lower is better (undernourishment, poverty) the gauge still rises toward the goal.</span>
           </CardContent>
         </Card>
+        {kpisForYear.length === 0 ? (
+          <EmptyState title="No indicators yet" body="The working dataset has no AMP indicators. An editor can add them from Manage data." />
+        ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {headline.map((k) => (
             <KpiCard key={k.id} kpi={k} />
@@ -266,6 +284,7 @@ export function ExecutiveOverview({ year }: { year?: number }) {
               <KpiCard key={k.id} kpi={k} />
             ))}
         </div>
+        )}
       </div>
     </div>
   );

@@ -16,7 +16,7 @@ const ACTOR = "seed";
 export type Tables = Record<DatasetId, Row[]>;
 
 function blank(): Tables {
-  return Object.fromEntries(DATASET_IDS.map((id) => [id, []])) as Tables;
+  return Object.fromEntries(DATASET_IDS.map((id) => [id, []])) as unknown as Tables;
 }
 
 /**

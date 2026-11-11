@@ -59,3 +59,16 @@ body {
   background: hsl(var(--border));
   border-radius: 8px;
 }
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+    color: black;
+  }
+  .print-brief {
+    max-width: none;
+  }
+}

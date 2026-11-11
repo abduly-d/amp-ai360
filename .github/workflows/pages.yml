@@ -1,53 +1,17 @@
 name: Deploy live site (GitHub Pages)
 
-# Publishes the self-contained AMP Ai360 standalone build to GitHub Pages so
-# external contacts can open it in a browser with no backend. Runs on every
-# push to main and can be triggered manually.
+# Disabled. AMP AI360 is a Next.js application hosted on Vercel.
+# This workflow used to publish share/amp-ai360-standalone.html, a static
+# export that is no longer the product. It does not run on pushes to main.
+# Leave it in the repo so the old Pages setup is explicit, not a failing job.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "share/amp-ai360-standalone.html"
-      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-# Allow one concurrent deployment; don't cancel an in-progress production deploy.
-concurrency:
-  group: pages
-  cancel-in-progress: false
-
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Assemble site
-        run: |
-          mkdir -p _site
-          cp "share/amp-ai360-standalone.html" "_site/index.html"
-          # Prevent Jekyll from processing the static file.
-          touch _site/.nojekyll
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
   deploy:
-    needs: build
+    if: false
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Disabled
+        run: echo "GitHub Pages deploy is disabled. Host the Next.js app on Vercel."

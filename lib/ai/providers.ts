@@ -16,14 +16,16 @@ export function isProvider(value: string): value is ProviderName {
   return (PROVIDERS as string[]).includes(value);
 }
 
-export function providerConfigured(name: ProviderName, env: NodeJS.ProcessEnv): boolean {
+type Env = Record<string, string | undefined>;
+
+export function providerConfigured(name: ProviderName, env: Env): boolean {
   if (name === "pawa") return Boolean(env.PAWA_AI_API_KEY);
   if (name === "anthropic") return Boolean(env.ANTHROPIC_API_KEY);
   return Boolean(env.OPENAI_API_KEY);
 }
 
 /** Ordered providers to try. Unconfigured names are skipped. */
-export function providerChain(env: NodeJS.ProcessEnv = process.env): ProviderName[] {
+export function providerChain(env: Env = process.env): ProviderName[] {
   const requested = (env.AI_PROVIDER || "")
     .split(",")
     .map((part) => part.trim().toLowerCase())
@@ -106,7 +108,7 @@ export function extractAssistantText(payload: unknown): string | null {
 }
 
 export async function completeWithChain(options: {
-  env?: NodeJS.ProcessEnv;
+  env?: Env;
   system: string;
   user: string;
   fetchImpl?: typeof fetch;
@@ -126,7 +128,7 @@ export async function completeWithChain(options: {
 
 async function callProvider(
   provider: ProviderName,
-  env: NodeJS.ProcessEnv,
+  env: Env,
   system: string,
   user: string,
   fetchImpl: typeof fetch
@@ -136,7 +138,7 @@ async function callProvider(
   return callOpenAI(env, system, user, fetchImpl);
 }
 
-async function callPawa(env: NodeJS.ProcessEnv, system: string, user: string, fetchImpl: typeof fetch): Promise<string | null> {
+async function callPawa(env: Env, system: string, user: string, fetchImpl: typeof fetch): Promise<string | null> {
   const messages = toPawaMessages([{ role: "user", text: `${system}\n\n${user}` }]);
   const res = await fetchImpl("https://api.pawa-ai.com/v1/chat/request", {
     method: "POST",
@@ -154,7 +156,7 @@ async function callPawa(env: NodeJS.ProcessEnv, system: string, user: string, fe
   return extractAssistantText(payload);
 }
 
-async function callAnthropic(env: NodeJS.ProcessEnv, system: string, user: string, fetchImpl: typeof fetch): Promise<string | null> {
+async function callAnthropic(env: Env, system: string, user: string, fetchImpl: typeof fetch): Promise<string | null> {
   const res = await fetchImpl("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -174,7 +176,7 @@ async function callAnthropic(env: NodeJS.ProcessEnv, system: string, user: strin
   return extractAssistantText(payload);
 }
 
-async function callOpenAI(env: NodeJS.ProcessEnv, system: string, user: string, fetchImpl: typeof fetch): Promise<string | null> {
+async function callOpenAI(env: Env, system: string, user: string, fetchImpl: typeof fetch): Promise<string | null> {
   const res = await fetchImpl("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
