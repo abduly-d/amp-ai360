@@ -17,7 +17,9 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { COMMODITIES, Commodity } from "@/lib/data/commodities";
+import { COMMODITIES as STATIC_COMMODITIES, Commodity } from "@/lib/data/commodities";
+import { useDomain, useFilters } from "@/components/app-state";
+import { EmptyState } from "@/components/page-header";
 import { TMX_BOARD, TMX_META, tmxTotals, PRESSURE_META, TmxQuote } from "@/lib/data/tmx";
 import { BULLETIN, chgLabel } from "@/lib/data/bulletin";
 
@@ -217,10 +219,20 @@ function TmxBoard({ onPick }: { onPick: (id: string) => void }) {
 }
 
 export function CommodityIntelligence() {
-  const [selected, setSelected] = useState<Commodity>(COMMODITIES[0]);
-  const latest = selected.series[selected.series.length - 1];
-  const first = selected.series[0];
-  const growthPct = Math.round(((latest.production - first.production) / first.production) * 100);
+  const { snapshot, ready } = useDomain();
+  const { region } = useFilters();
+  const regionName = snapshot.regions.find((item) => item.id === region)?.name ?? "";
+  const COMMODITIES = (ready ? snapshot.commodities : STATIC_COMMODITIES).filter(
+    (commodity) => !regionName || commodity.keyRegions.some((name) => name.toLowerCase() === regionName.toLowerCase())
+  );
+  const [selectedId, setSelectedId] = useState("");
+  const selected = COMMODITIES.find((commodity) => commodity.id === selectedId) ?? COMMODITIES[0];
+  if (!selected) {
+    return <EmptyState title="No commodities" body="No priority commodities match this filter. Clear the region filter or add records in Manage data." />;
+  }
+  const latest = selected.series[selected.series.length - 1] ?? { year: new Date().getFullYear(), production: 0, price: 0 };
+  const first = selected.series[0] ?? latest;
+  const growthPct = first.production ? Math.round(((latest.production - first.production) / first.production) * 100) : 0;
   const tmxQuote = TMX_BOARD.find((q) => q.commodityId === selected.id);
 
   return (
@@ -229,7 +241,7 @@ export function CommodityIntelligence() {
       <TmxBoard
         onPick={(id) => {
           const c = COMMODITIES.find((x) => x.id === id);
-          if (c) setSelected(c);
+          if (c) setSelectedId(c.id);
         }}
       />
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
@@ -243,7 +255,7 @@ export function CommodityIntelligence() {
             {COMMODITIES.map((c) => (
               <button
                 key={c.id}
-                onClick={() => setSelected(c)}
+                onClick={() => setSelectedId(c.id)}
                 className={`flex flex-col items-center gap-1 rounded-lg border p-2 text-center transition-colors ${
                   selected.id === c.id
                     ? "border-primary bg-primary/10"
@@ -406,9 +418,9 @@ export function CommodityIntelligence() {
                 Category: <span className="font-medium text-foreground">{selected.category}</span> ·
                 2030 target implies a{" "}
                 <span className="font-medium text-foreground">
-                  {Math.round(
-                    (selected.amp2030TargetProduction / latest.production - 1) * 100
-                  )}
+                  {latest.production
+                    ? Math.round((selected.amp2030TargetProduction / latest.production - 1) * 100)
+                    : "—"}
                   %
                 </span>{" "}
                 output increase over {latest.year}.

@@ -12,7 +12,9 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CAADP_MATRIX, VERDICT_META, CAADP_SCORECARD } from "@/lib/data/caadp";
+import { CAADP_MATRIX as STATIC_CAADP, VERDICT_META, CAADP_SCORECARD } from "@/lib/data/caadp";
+import { useDomain } from "@/components/app-state";
+import { EmptyState } from "@/components/page-header";
 
 const tooltipStyle = {
   backgroundColor: "hsl(var(--card))",
@@ -22,6 +24,11 @@ const tooltipStyle = {
 };
 
 export function CaadpAlignment() {
+  const { snapshot, ready } = useDomain();
+  const CAADP_MATRIX = ready ? snapshot.caadp : STATIC_CAADP;
+  if (!CAADP_MATRIX.length) {
+    return <EmptyState title="No alignment items" body="Add CAADP rows in Manage data to rebuild this matrix." />;
+  }
   return (
     <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-[1fr_360px]">

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { REGIONS, scoreBand } from "@/lib/data/regions";
+import { REGIONS as STATIC_REGIONS, scoreBand } from "@/lib/data/regions";
+import { useDomain, useFilters } from "@/components/app-state";
 import {
   CORRIDORS,
   OPERATIONS,
@@ -16,15 +17,40 @@ import {
 import { TZ_GEO } from "@/lib/data/tz-geo";
 
 export function RegionalIntelligence() {
-  const [selectedId, setSelectedId] = useState<string>("sagcot");
+  const { snapshot, ready } = useDomain();
+  const { region } = useFilters();
+  const REGIONS = ready ? snapshot.regions : STATIC_REGIONS;
+  const focus = REGIONS.find((item) => item.id === region);
+  const [selectedId, setSelectedId] = useState<string>(focus ? corridorOf(focus.id)?.id ?? "sagcot" : "sagcot");
+  const focusId = focus?.id;
+  useEffect(() => {
+    if (!focusId) return;
+    const corridor = corridorOf(focusId);
+    if (corridor) setSelectedId(corridor.id);
+  }, [focusId]);
   const sel: Corridor = CORRIDORS.find((c) => c.id === selectedId) ?? CORRIDORS[0];
-  const score = corridorReadiness(sel);
+  const score = corridorReadiness(sel, REGIONS);
   const status = corridorStatus(score);
-  const ranked = CORRIDORS.map((c) => ({ c, score: corridorReadiness(c) })).sort(
+  const ranked = CORRIDORS.map((c) => ({ c, score: corridorReadiness(c, REGIONS) })).sort(
     (a, b) => b.score - a.score
   );
 
   return (
+    <div className="space-y-4">
+      {focus && (
+        <Card>
+          <CardContent className="grid gap-3 p-4 sm:grid-cols-4">
+            <div>
+              <p className="text-xs text-muted-foreground">{focus.zone}</p>
+              <p className="text-lg font-bold">{focus.name}</p>
+            </div>
+            <Metric label="Cropland" value={`${focus.croplandCoverPct}%`} />
+            <Metric label="Irrigated" value={`${focus.irrigationPct}%`} />
+            <Metric label="AMP score" value={String(focus.ampScore)} />
+            {"note" in focus && focus.note ? <p className="text-xs text-muted-foreground sm:col-span-4">{String(focus.note)}</p> : null}
+          </CardContent>
+        </Card>
+      )}
     <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
       <Card>
         <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 space-y-0">
@@ -131,7 +157,8 @@ export function RegionalIntelligence() {
               <p className="mb-1 text-xs text-muted-foreground">Member regions &amp; readiness</p>
               <div className="space-y-1.5">
                 {sel.regions.map((id) => {
-                  const r = REGIONS.find((x) => x.id === id)!;
+                  const r = REGIONS.find((x) => x.id === id);
+                  if (!r) return null;
                   const b = scoreBand(r.ampScore);
                   return (
                     <div key={id} className="flex items-center gap-2 text-xs">
@@ -170,6 +197,16 @@ export function RegionalIntelligence() {
           </CardContent>
         </Card>
       </div>
+    </div>
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-lg font-semibold">{value}</p>
     </div>
   );
 }

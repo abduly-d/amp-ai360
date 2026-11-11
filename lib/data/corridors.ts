@@ -28,8 +28,9 @@ export function corridorOf(regionId: string): Corridor | undefined {
   return CORRIDORS.find((c) => c.regions.includes(regionId));
 }
 
-export function corridorReadiness(c: Corridor): number {
-  const scores = c.regions.map((id) => REGIONS.find((r) => r.id === id)?.ampScore ?? 0);
+export function corridorReadiness(c: Corridor, regions: { id: string; ampScore: number }[] = REGIONS): number {
+  const scores = c.regions.map((id) => regions.find((r) => r.id === id)?.ampScore ?? 0);
+  if (!scores.length) return 0;
   return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
 }
 

@@ -4,7 +4,9 @@ import { useState } from "react";
 import { AlertTriangle, CheckCircle2, Clock, ShieldAlert } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ALERTS, ALERT_META, AlertLevel } from "@/lib/data/alerts";
+import { ALERTS as STATIC_ALERTS, ALERT_META, AlertLevel } from "@/lib/data/alerts";
+import { useDomain, useFilters } from "@/components/app-state";
+import { EmptyState } from "@/components/page-header";
 import { FORECASTS } from "@/lib/data/forecast";
 import { BOT_MER } from "@/lib/data/bot-mer";
 
@@ -86,7 +88,15 @@ function PriorityExportWatch() {
 }
 
 export function DecisionRoom() {
+  const { snapshot, ready } = useDomain();
+  const { flagship } = useFilters();
+  const ALERTS = (ready ? snapshot.alerts : STATIC_ALERTS).filter(
+    (alert) => !flagship || String(alert.flagship ?? "") === flagship
+  );
   const [filter, setFilter] = useState<AlertLevel | "all">("all");
+  if (!ALERTS.length && flagship) {
+    return <EmptyState title="No alerts for this flagship" body="Clear the flagship filter or add a decision-room item in Manage data." />;
+  }
   const counts = {
     red: ALERTS.filter((a) => a.level === "red").length,
     amber: ALERTS.filter((a) => a.level === "amber").length,

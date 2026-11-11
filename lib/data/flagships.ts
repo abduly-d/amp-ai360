@@ -42,5 +42,6 @@ export const STATUS_META: Record<FlagshipStatus, { label: string; icon: string; 
 };
 
 export function flagshipProgress(f: Flagship): number {
+  if (!f.target) return 0;
   return Math.max(0, Math.min(100, Math.round((f.current / f.target) * 100)));
 }

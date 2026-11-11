@@ -1,103 +1,115 @@
-# AMP AI360 — Tanzania Agriculture Master Plan & CAADP Executive Platform
+# AMP AI360 — Tanzania Agriculture Master Plan platform
 
-> **🌍 Live site:** **https://abduly-d.github.io/amp-ai360/** — open in any browser, no install needed.
+Working application for the Agriculture Transformation Office and its stakeholders
+(MoA, MLF, development partners, and ministry leadership). It tracks AMP 2050
+delivery: indicators, the 15 flagships, priority commodities, regions, institutions,
+CAADP alignment, the decision room, and investments.
 
-A full-stack **Next.js 14 (App Router)** executive-intelligence application tracking Tanzania's
-**Agriculture Master Plan (AMP 2050)** and its alignment with the **AU CAADP / Malabo Declaration**,
-with an embedded **AI Executive Copilot** (RAG over the AMP 2050 & CAADP knowledge base).
+The public site is a **Next.js 14** app for **Vercel**, with **Neon Postgres** when
+`DATABASE_URL` or `POSTGRES_URL` is set. Without a database it still runs, using the
+seeded dataset in memory (and a local `.data/store.json` file in development).
 
-Built with **TypeScript, Tailwind CSS, Shadcn-style UI, Recharts, Lucide Icons**, and optional
-**Anthropic / OpenAI** integration.
+GitHub Pages previously published a static HTML export. That workflow is disabled.
+The static file under `share/` is kept only as a legacy artifact.
 
 ## Quick start
 
 ```bash
 npm install
+cp .env.local.example .env.local
 npm run dev
 ```
 
-Open the printed URL (defaults to http://localhost:3000; falls back to 3001 if busy).
-
-The platform runs **fully offline** using deterministic local RAG over the indexed AMP 2050 & CAADP
-document chunks. To enable higher-quality LLM-generated briefings, copy `.env.local.example` to
-`.env.local` and add an `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`.
-
-## What it delivers
-
-### 9 executive views (tabbed) + always-available AI Copilot drawer
-1. **Executive Overview** — KPI gauges (Ag GDP, exports, income, growth, undernourishment) with
-   2022 baseline → 2030 target → 2050 vision, plus an auto-generated AI executive summary.
-2. **Commodity Intelligence** — 20 priority commodities with production trends, farmgate price
-   history and post-harvest losses.
-3. **Regional Intelligence** — interactive SVG map of 26 regions (cropland, irrigation, stunting,
-   AMP readiness score) with a ranked list.
-4. **15 Flagship Tracker** — progress table with 🟢/🟡/🔴 status and cross-flagship dependency links.
-5. **Vision 2030 & 2050** — Business-As-Usual vs Full AMP scenario charts.
-6. **CAADP Alignment Matrix** — side-by-side AMP-vs-CAADP scorecard, alignment radar and
-   compatibility badges (Exceeds / Aligned / Gap / Critical Gap).
-7. **AI Commodity Forecast Engine** — price outlook, weather risk, trade signal and recommendation
-   badges (BUY / STRENGTHEN RESERVES / EXPORT PUSH / …).
-8. **Institutional Scorecard** — delivery & budget-execution matrix for MoA, MLF, TARI, TALIRI,
-   TAFIRI, TMX, TADB, NFRA, ASA, SAGCOT, ATO.
-9. **Executive Decision Room** — Red/Amber/Green daily alert console for the Minister's briefing.
-
-### API layer (`/app/api`)
-- `POST|GET /api/data/metrics` — priority fallback: **GOV_API (NBS/TMX/TRA) → Open Data
-  (FAOSTAT 215 / World Bank `NV.AGR.TOTL.ZS` / WFP VAM) → AMP ground-truth vectors**. Reports the
-  active source (drives the header ticker).
-- `POST|GET /api/ai/search` — hybrid lexical search over AMP 2050 & CAADP document chunks.
-- `POST|GET /api/ai/analyze` — RAG analysis with intent routing:
-  - **Cross-flagship correlation** (e.g. Flagship 1 × Flagship 8)
-  - **Target-path execution** (e.g. path to $6B exports by 2030)
-  - **CAADP alignment mapping** (AMP vs Maputo/Malabo/Post-Malabo)
-  - **General document RAG**
-  Uses Anthropic/OpenAI when a key is present, otherwise the deterministic local engine.
-
-## Project structure
-
-```
-app/
-  layout.tsx  page.tsx  globals.css
-  api/{data/metrics,ai/search,ai/analyze}/route.ts
-components/
-  header.tsx  ai-copilot-drawer.tsx  kpi-gauge.tsx
-  ui/{card,badge,button,progress}.tsx
-  views/{executive-overview,commodity-intelligence,regional-intelligence,
-         flagship-tracker,vision-scenarios,caadp-alignment,forecast-engine,
-         institutional-scorecard,decision-room}.tsx
-lib/
-  data/{amp-targets,commodities,regions,flagships,caadp,institutions,alerts,
-        scenarios,forecast,knowledge-base}.ts
-  ai/{retrieval,engine,types}.ts
-  utils.ts
-```
-
-## Data provenance
-
-All AMP figures use the AMP 2050 ground-truth baselines (Ag GDP $18B→$31.2B→$100B; growth
-4.8%→10%; exports $1.2B→$6B→$20B; undernourishment 25%→15.1%→0% by 2042; poverty 26M→2M;
-$5.5B public investment at a 3.5× benefit-cost ratio) and the CAADP Maputo/Malabo commitments
-(≥10% budget, ≥6% growth, tripling intra-African trade, ending hunger/halving poverty, Post-Malabo
-2026–2035 agenda). Open-data tiers reference FAOSTAT, the World Bank and WFP VAM.
-
-## Connect to GitHub & deploy
-
-The GitHub CLI is installed. Sign in once (opens your browser), then run the helper:
+Open http://localhost:3000. With no database URL and no `EDITOR_PASSWORD`, the app
+is readable and edits stay off. Set `EDITOR_PASSWORD` to sign in and change data.
 
 ```bash
-gh auth login
-./scripts/connect-github.sh            # creates a private "amp-ai360" repo and pushes
-# ./scripts/connect-github.sh amp-ai360 --public   # to make it public instead
+npm test
+npm run build
 ```
 
-Deploy to a live URL with Vercel:
+## What you can do
 
-```bash
-npm i -g vercel
-vercel login
-./scripts/deploy-vercel.sh --prod
+- Read every view without an account.
+- Sign in with the editor password and a display name. The session is an HTTP-only
+  signed cookie. There is one editor role today, with room to add more later.
+- Create, edit, and delete records, including a yearly indicator actual or a
+  flagship progress entry for a period, each with a short note and source.
+- Download a CSV template, export the current rows, and import a file. A file with
+  any invalid row is rejected as a whole.
+- Read the audit log (who, when, what, before and after).
+- Search from the header. Filter by year, region, and flagship.
+- Print the Executive brief for a meeting.
+- Ask the assistant. It grounds answers in the knowledge base and the live dataset.
+
+The sidebar groups the workspace: Overview, Delivery, Markets, Geography,
+Alignment, and Data. The Kilimo green / gold / blue palette and light/dark themes
+stay.
+
+## Architecture
+
+```
+app/(portal)          Sidebar shell and pages
+app/api/records       CRUD, CSV import, export, template
+app/api/domain        Snapshot used by the pages
+app/api/audit         Audit log
+app/api/auth          Password session
+app/api/health        Database mode and AI provider status
+app/api/ai            Search and RAG analysis (unchanged paths)
+app/api/data          Existing metrics and TMX routes
+lib/domain            Dataset contracts, validation, seed, snapshot
+lib/store             Postgres (Neon serverless) and in-memory fallback
+lib/import            CSV parse and validation
+lib/ai                Provider chain, then the local engine
 ```
 
-Optional environment variables (set in the Vercel dashboard):
-- `OPENAI_API_KEY` + `AMP_GPT_INSTRUCTIONS` — GPT-matched in-dashboard assistant
-- `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` — live Google Map (if enabled)
+On startup the Postgres store runs `CREATE TABLE IF NOT EXISTS` and, once, loads
+the current `lib/data` figures. That seed uses `ON CONFLICT DO NOTHING`, so later
+edits are not overwritten. If the database is empty after that, pages show empty
+states instead of crashing. If the database cannot be reached, the app falls back
+to the seeded in-memory data and says so.
+
+Neon hostnames use the Neon serverless HTTP driver. Any other Postgres URL,
+including a local database, uses the standard Postgres wire protocol.
+
+Seed figures are the public AMP 2050 baselines already in this repository.
+Commodity price paths and several operational scores are illustrative placeholders,
+not confidential ATO or AGRA working papers.
+
+## Environment
+
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` or `POSTGRES_URL` | Neon (or any Postgres the Neon serverless driver can reach). Blank = local dataset. |
+| `EDITOR_PASSWORD` | Shared editor password. Unset = editing disabled. |
+| `SESSION_SECRET` | Cookie signing key. Defaults to `EDITOR_PASSWORD`. |
+| `AI_PROVIDER` | Comma-separated chain, for example `pawa` or `anthropic,pawa`. |
+| `PAWA_AI_API_KEY` | Pawa AI bearer token. |
+| `PAWA_MODEL` | Defaults to `pawa-v1-blaze-20250318`. |
+| `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | Anthropic Messages API. |
+| `OPENAI_API_KEY` / `OPENAI_MODEL` | OpenAI chat completions. |
+| `AMP_GPT_INSTRUCTIONS` | Optional persona prepended to the assistant prompt. |
+
+Pawa is called at `POST https://api.pawa-ai.com/v1/chat/request`. Message content is
+a list of `{type:'text', text}` blocks, and user/assistant turns alternate. If a
+provider is missing, errors, or returns an unreadable body, the next provider is
+tried. The deterministic local engine is the last resort. When `AI_PROVIDER` is
+unset, the chain is OpenAI, then Anthropic, then Pawa, skipping any without a key.
+
+`GET /api/health` reports the database mode and which AI providers are configured.
+It does not return secrets.
+
+## Deploy on Vercel
+
+This is a normal Next.js app (no static export). Create a Vercel project from the
+repository, attach a Neon database, and set the environment variables above for
+Production. Do not commit `.env.local`.
+
+The GitHub Pages workflow (`.github/workflows/pages.yml`) no longer runs on pushes
+to `main`. Production hosting is Vercel.
+
+## Tests
+
+`npm test` covers the in-memory store (seed, CRUD, audit, period upserts), CSV
+parsing and validation, session signing, and the AI provider chain including Pawa's
+response shapes.
