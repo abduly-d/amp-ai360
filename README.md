@@ -69,6 +69,9 @@ edits are not overwritten. If the database is empty after that, pages show empty
 states instead of crashing. If the database cannot be reached, the app falls back
 to the seeded in-memory data and says so.
 
+Neon hostnames use the Neon serverless HTTP driver. Any other Postgres URL,
+including a local database, uses the standard Postgres wire protocol.
+
 Seed figures are the public AMP 2050 baselines already in this repository.
 Commodity price paths and several operational scores are illustrative placeholders,
 not confidential ATO or AGRA working papers.
