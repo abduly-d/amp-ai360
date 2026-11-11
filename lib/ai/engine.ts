@@ -312,6 +312,7 @@ function parseLlmText(
   const recommendations: string[] = [];
   const summaryLines: string[] = [];
   for (const line of lines) {
+    if (/^(chat request processed successfully|request processed successfully)\.?$/i.test(line)) continue;
     if (/^rec[:\-]/i.test(line)) recommendations.push(line.replace(/^rec[:\-]\s*/i, ""));
     else if (/^[-*•]/.test(line)) keyPoints.push(line.replace(/^[-*•]\s*/, ""));
     else summaryLines.push(line);

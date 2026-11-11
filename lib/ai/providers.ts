@@ -55,6 +55,9 @@ export function toPawaMessages(turns: ChatTurn[]): PawaMessage[] {
   return messages;
 }
 
+/** Pawa's envelope uses `message` for this status line, not the assistant answer. */
+const STATUS_TEXT = /^(chat request processed successfully|request processed successfully|success(ful)?|ok)\.?$/i;
+
 function textFromContent(content: unknown): string | null {
   if (typeof content === "string" && content.trim()) return content.trim();
   if (!Array.isArray(content)) return null;
@@ -68,42 +71,69 @@ function textFromContent(content: unknown): string | null {
       }
       return "";
     })
-    .filter(Boolean);
+    .filter((part) => part.trim() && !STATUS_TEXT.test(part.trim()));
   return parts.length ? parts.join("\n").trim() : null;
 }
 
-/** Accept OpenAI-style, Anthropic-style, and a few Pawa variants without assuming one shape. */
+function usableText(value: unknown): string | null {
+  const text = typeof value === "string" ? value.trim() : textFromContent(value);
+  if (!text || STATUS_TEXT.test(text)) return null;
+  return text;
+}
+
+function assistantFromMessage(message: unknown): string | null {
+  if (!message || typeof message !== "object") return null;
+  return usableText((message as Record<string, unknown>).content);
+}
+
+/**
+ * Read the model reply from OpenAI, Anthropic, or Pawa.
+ * Pawa wraps the reply as `{ success, message: "<status>", data: { request: [{ message: { content } }] } }`.
+ * The top-level `message` is only an acknowledgement and is never the answer.
+ */
 export function extractAssistantText(payload: unknown): string | null {
   if (!payload || typeof payload !== "object") return null;
   const root = payload as Record<string, unknown>;
-  const choices = root.choices;
-  if (Array.isArray(choices) && choices[0] && typeof choices[0] === "object") {
-    const message = (choices[0] as Record<string, unknown>).message;
-    if (message && typeof message === "object") {
-      const text = textFromContent((message as Record<string, unknown>).content);
-      if (text) return text;
-    }
-    const text = textFromContent((choices[0] as Record<string, unknown>).text);
-    if (text) return text;
-  }
-  const direct = [
-    root.output_text,
-    root.text,
-    root.answer,
-    root.result,
-    textFromContent(root.content),
-    textFromContent(root.message),
-  ];
-  for (const candidate of direct) {
-    if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
-  }
-  if (root.message && typeof root.message === "object") {
-    const text = textFromContent((root.message as Record<string, unknown>).content);
-    if (text) return text;
-  }
+
   const data = root.data;
-  if (data && typeof data === "object") return extractAssistantText(data);
-  if (Array.isArray(root.content)) return textFromContent(root.content);
+  if (data && typeof data === "object") {
+    const request = (data as Record<string, unknown>).request;
+    if (Array.isArray(request)) {
+      for (const item of request) {
+        if (!item || typeof item !== "object") continue;
+        const text = assistantFromMessage((item as Record<string, unknown>).message);
+        if (text) return text;
+      }
+    }
+  }
+
+  const choices = root.choices;
+  if (Array.isArray(choices)) {
+    for (const choice of choices) {
+      if (!choice || typeof choice !== "object") continue;
+      const record = choice as Record<string, unknown>;
+      const fromMessage = assistantFromMessage(record.message);
+      if (fromMessage) return fromMessage;
+      const fromText = usableText(record.text);
+      if (fromText) return fromText;
+    }
+  }
+
+  const fromContent = usableText(root.content);
+  if (fromContent) return fromContent;
+
+  for (const candidate of [root.output_text, root.text, root.answer, root.result]) {
+    const text = usableText(candidate);
+    if (text) return text;
+  }
+
+  const fromObjectMessage = assistantFromMessage(root.message);
+  if (fromObjectMessage) return fromObjectMessage;
+
+  if (data && typeof data === "object" && data !== root) {
+    const nested = extractAssistantText(data);
+    if (nested) return nested;
+  }
   return null;
 }
 
