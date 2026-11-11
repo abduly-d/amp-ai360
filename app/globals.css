@@ -60,6 +60,25 @@ body {
   border-radius: 8px;
 }
 
+@keyframes amp-kenburns {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.08);
+  }
+}
+
+.amp-kenburns {
+  animation: amp-kenburns 6.5s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .amp-kenburns {
+    animation: none;
+  }
+}
+
 @media print {
   .no-print {
     display: none !important;

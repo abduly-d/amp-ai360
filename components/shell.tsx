@@ -1,8 +1,8 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
-import { Menu, Moon, Search, Sun, Wheat, X, LogOut, Brain } from "lucide-react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Menu, Moon, Search, Sun, Wheat, X, LogOut, Brain, House } from "lucide-react";
 import { NAV } from "@/lib/nav";
 import { searchDomain } from "@/lib/domain/search";
 import type { DomainSnapshot } from "@/lib/domain/snapshot";
@@ -34,6 +34,7 @@ export function Shell({
 
 function Frame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const welcomeOpen = useSearchParams().get("welcome") === "1";
   const { snapshot, refreshing } = useDomain();
   const { name } = useAuth();
   const filters = useFilters();
@@ -48,6 +49,12 @@ function Frame({ children }: { children: React.ReactNode }) {
     setNavOpen(false);
     setQuery("");
   }, [pathname]);
+
+  useEffect(() => {
+    const open = () => setAssistantOpen(true);
+    window.addEventListener("amp-open-assistant", open);
+    return () => window.removeEventListener("amp-open-assistant", open);
+  }, []);
 
   useEffect(() => {
     const stored = window.localStorage.getItem("amp-theme");
@@ -87,12 +94,20 @@ function Frame({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <nav aria-label="Primary" className="thin-scroll flex-1 space-y-4 overflow-y-auto px-3 py-4">
+          <a
+            href="/?welcome=1"
+            aria-current={pathname === "/" && welcomeOpen ? "page" : undefined}
+            className={`flex items-center gap-2 rounded-lg px-2 py-2 text-sm ${pathname === "/" && welcomeOpen ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-secondary"}`}
+          >
+            <House className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>Welcome</span>
+          </a>
           {NAV.map((group) => (
             <div key={group.label}>
               <p className="px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{group.label}</p>
               <ul className="mt-1 space-y-0.5">
                 {group.items.map((item) => {
-                  const active = pathname === item.href;
+                  const active = item.href === "/" ? pathname === "/" && !welcomeOpen : pathname === item.href;
                   const Icon = item.icon;
                   return (
                     <li key={item.href}>
